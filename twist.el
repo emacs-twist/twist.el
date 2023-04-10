@@ -67,8 +67,8 @@
         (twist--update-from-digest twist-new-digest-file)
         (setq twist-new-digest-file nil)
         (garbage-collect)
-        (message "twist: Update complete.")))
-  (user-error "No updates."))
+        (message "twist: Update complete."))
+    (user-error "No updates.")))
 
 (defun twist--update-from-digest (digest-file)
   (let* ((current-digest (twist--read-digest-file twist-current-digest-file))
