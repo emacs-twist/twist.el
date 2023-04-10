@@ -1,0 +1,27 @@
+{
+  "nodes": {
+    "root": {
+      "inputs": {
+        "twist": "twist"
+      }
+    },
+    "twist": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1644072251,
+        "narHash": "sha256-Sr9djOSZ03gNpB9+Hus0k299OVDKoAJYbcMb7JHKaQI=",
+        "owner": "emacs-twist",
+        "repo": "twist.el",
+        "rev": "ee6b5da7d6a72eb88003ede4ad19be632cdbd994",
+        "type": "github"
+      },
+      "original": {
+        "owner": "emacs-twist",
+        "repo": "twist.el",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
