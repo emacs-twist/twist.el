@@ -83,7 +83,10 @@ it is nothing specific to twist."
 ;;;###autoload
 (defun twist-push-digest (file &optional revision)
   "Prepare for updating from a digest FILE."
-  (setq twist-new-digest-file-and-revision (list file revision)))
+  (unless (or (equal file twist-current-digest-file)
+              (equal file (car twist-new-digest-file-and-revision)))
+    (setq twist-new-digest-file-and-revision (list file revision))
+    (message "twist: Received a new digest for updates.")))
 
 (defun twist-update ()
   "Hot-reload packages from the digest."
