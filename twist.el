@@ -40,6 +40,10 @@
 (defvar twist-current-digest-file)
 (defvar twist-running-emacs)
 
+(defcustom twist-emacs-systemd-service "emacs.service"
+  "Name of the systemd service running Emacs."
+  :type 'string)
+
 (defvar twist-configuration-revision nil
   "Configuration revision of the current package set.")
 
@@ -52,7 +56,20 @@
   ;; This needs to be run asynchronously, as otherwise it would cause
   ;; deadlock.
   (if (eq system-type 'gnu/linux)
-      (start-process "reload" nil "systemctl" "--user" "reload" "emacs.service")
+      (start-process "reload" nil "systemctl" "--user" "reload"
+                     twist-emacs-systemd-service)
+    (user-error "Unsupported system thpe")))
+
+;;;###autoload
+(defun twist-restart-emacs-service ()
+  "Restart the service unit running Emacs.
+
+This command is simply provided as a convenience of the user, and
+it is nothing specific to twist."
+  (interactive)
+  (if (eq system-type 'gnu/linux)
+      (start-process "reload" nil "systemctl" "--user" "restart"
+                     twist-emacs-systemd-service)
     (user-error "Unsupported system thpe")))
 
 ;;;###autoload
