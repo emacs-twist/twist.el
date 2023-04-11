@@ -56,8 +56,7 @@
   ;; This needs to be run asynchronously, as otherwise it would cause
   ;; deadlock.
   (if (eq system-type 'gnu/linux)
-      (start-process "reload" nil "systemctl" "--user" "reload"
-                     twist-emacs-systemd-service)
+      (twist--systemd "reload")
     (user-error "Unsupported system thpe")))
 
 ;;;###autoload
@@ -68,9 +67,14 @@ This command is simply provided as a convenience of the user, and
 it is nothing specific to twist."
   (interactive)
   (if (eq system-type 'gnu/linux)
-      (start-process "reload" nil "systemctl" "--user" "restart"
-                     twist-emacs-systemd-service)
+      (twist--systemd "restart")
     (user-error "Unsupported system thpe")))
+
+(defun twist--systemd (command &rest args)
+  (message "twist: %s: Signaling %s %s" twist-emacs-systemd-service command (or args ""))
+  (apply #'start-process "Twist-Systemd" nil "systemctl" "--user" command
+         twist-emacs-systemd-service
+         args))
 
 ;;;###autoload
 (defun twist-push-digest (file &optional revision)
