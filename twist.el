@@ -56,7 +56,7 @@
   ;; This needs to be run asynchronously, as otherwise it would cause
   ;; deadlock.
   (if (eq system-type 'gnu/linux)
-      (twist--systemd "reload")
+      (twist--systemctl "reload")
     (user-error "Unsupported system thpe")))
 
 ;;;###autoload
@@ -70,10 +70,11 @@ it is nothing specific to twist."
       (if (daemonp)
           ;; This is just not right implemented yet. I'll check this someday.
           (user-error "Cannot self-restart the Emacs daemon")
-        (twist--systemd "restart"))
+        (twist--systemctl "restart"))
     (user-error "Unsupported system thpe")))
 
-(defun twist--systemd (command &rest args)
+(defun twist--systemctl (command &rest args)
+  "Run a command on the emacs systemd service."
   (message "twist: %s: Signaling %s %s" twist-emacs-systemd-service command (or args ""))
   (apply #'start-process "Twist-Systemd" nil "systemctl" "--user" command
          twist-emacs-systemd-service
