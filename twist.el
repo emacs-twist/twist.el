@@ -40,7 +40,10 @@
 (defvar twist-current-digest-file)
 (defvar twist-running-emacs)
 
-(defvar twist-new-digest-file nil)
+(defvar twist-configuration-revision nil
+  "Configuration revision of the current package set.")
+
+(defvar twist-new-digest-file-and-revision nil)
 
 ;;;###autoload
 (defun twist-reload-service ()
@@ -53,19 +56,25 @@
     (user-error "Unsupported system thpe")))
 
 ;;;###autoload
-(defun twist-push-digest (file)
+(defun twist-push-digest (file &optional revision)
   "Prepare for updating from a digest FILE."
-  (setq twist-new-digest-file file))
+  (setq twist-new-digest-file-and-revision (list file revision)))
 
 (defun twist-update ()
   "Hot-reload packages from the digest."
   (interactive)
-  (if (and twist-new-digest-file
-           (not (equal twist-new-digest-file twist-current-digest-file)))
+  (if (and twist-new-digest-file-and-revision
+           (not (equal (car twist-new-digest-file-and-revision)
+                       twist-current-digest-file)))
       (progn
-        (message "Updating from digest %s" twist-new-digest-file)
-        (twist--update-from-digest twist-new-digest-file)
-        (setq twist-new-digest-file nil)
+        (message "Updating from digest %s%s"
+                 (car twist-new-digest-file-and-revision)
+                 (if-let (rev (cadr twist-new-digest-file-and-revision))
+                     (format " (revision: %s)" rev)
+                   ""))
+        (twist--update-from-digest (car twist-new-digest-file-and-revision))
+        (setq twist-new-digest-file-and-revision nil
+              twist-configuration-revision (cadr twist-new-digest-file-and-revision))
         (garbage-collect)
         (message "twist: Update complete."))
     (user-error "No updates.")))
