@@ -67,7 +67,10 @@ This command is simply provided as a convenience of the user, and
 it is nothing specific to twist."
   (interactive)
   (if (eq system-type 'gnu/linux)
-      (twist--systemd "restart")
+      (if (daemonp)
+          ;; This is just not right implemented yet. I'll check this someday.
+          (user-error "Cannot self-restart the Emacs daemon")
+        (twist--systemd "restart"))
     (user-error "Unsupported system thpe")))
 
 (defun twist--systemd (command &rest args)
