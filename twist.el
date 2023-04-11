@@ -40,8 +40,13 @@
 (defvar twist-current-digest-file)
 (defvar twist-running-emacs)
 
+(defgroup twist nil
+  "Nix-based package manager for Emacs."
+  :group 'nix)
+
 (defcustom twist-emacs-systemd-service "emacs.service"
   "Name of the systemd service running Emacs."
+  :group 'twist
   :type 'string)
 
 (defvar twist-configuration-revision nil
