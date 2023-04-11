@@ -86,7 +86,10 @@ it is nothing specific to twist."
   (unless (or (equal file twist-current-digest-file)
               (equal file (car twist-new-digest-file-and-revision)))
     (setq twist-new-digest-file-and-revision (list file revision))
-    (message "twist: Received a new digest for updates.")))
+    (message (substitute-command-keys
+              "twist: Received a new digest for updates. \
+Run \\[twist-update] to start updating"
+              'no-face))))
 
 (defun twist-update ()
   "Hot-reload packages from the digest."
