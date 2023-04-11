@@ -50,7 +50,7 @@
 (defvar twist-new-digest-file-and-revision nil)
 
 ;;;###autoload
-(defun twist-reload-service ()
+(defun twist-reload-emacs-service ()
   "Manually trigger reloading the service for package updates."
   (interactive)
   ;; This needs to be run asynchronously, as otherwise it would cause
