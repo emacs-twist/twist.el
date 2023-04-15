@@ -33,104 +33,92 @@
 
 (require 'subr-x)
 (require 'cl-lib)
+(require 'filenotify)
 
 (defvar comp-native-version-dir)
 
 ;; Declared as constants elsewhere
-(defvar twist-current-digest-file)
+(defvar twist-current-state-file)
 (defvar twist-running-emacs)
 
 (defgroup twist nil
   "Nix-based package manager for Emacs."
   :group 'nix)
 
-(defcustom twist-emacs-systemd-service "emacs.service"
-  "Name of the systemd service running Emacs."
+(defcustom twist-state-file (locate-user-emacs-file "twist.json")
+  "Path to the state file tracking the state of the package set."
   :group 'twist
-  :type 'string)
+  :set (lambda (sym val)
+         (set sym val)
+         (when (bound-and-true-p twist-watch-mode)
+           (twist--change-state-file val)))
+  :type 'file)
 
 (defvar twist-configuration-revision nil
   "Configuration revision of the current package set.")
 
-(defvar twist-new-digest-file-and-revision nil)
+(defvar twist-configuration-file-watch nil)
 
 ;;;###autoload
-(defun twist-reload-emacs-service ()
-  "Manually trigger reloading the service for package updates."
-  (interactive)
-  ;; This needs to be run asynchronously, as otherwise it would cause
-  ;; deadlock.
-  (if (eq system-type 'gnu/linux)
-      (twist--systemctl "reload")
-    (user-error "Unsupported system thpe")))
+(define-minor-mode twist-watch-mode
+  "Global minor mode which supports notification of package updates."
+  :global t
+  (when twist-watch-mode
+    (twist--change-state-file)
+    (when twist-configuration-file-watch
+      (message "Started watching %s for package updates" twist-state-file))))
 
-;;;###autoload
-(defun twist-restart-emacs-service ()
-  "Restart the service unit running Emacs.
+(defun twist--change-state-file (&optional file)
+  (when twist-configuration-file-watch
+    (file-notify-rm-watch twist-configuration-file-watch)
+    (setq twist-configuration-file-watch nil))
+  (when twist-watch-mode
+    (setq twist-configuration-file-watch
+          (file-notify-add-watch (or file twist-state-file)
+                                 '(change) #'twist--handle-state-change))))
 
-This command is simply provided as a convenience of the user, and
-it is nothing specific to twist."
-  (interactive)
-  (if (eq system-type 'gnu/linux)
-      (if (daemonp)
-          ;; This is just not right implemented yet. I'll check this someday.
-          (user-error "Cannot self-restart the Emacs daemon")
-        (twist--systemctl "restart"))
-    (user-error "Unsupported system thpe")))
-
-(defun twist--systemctl (command &rest args)
-  "Run a command on the emacs systemd service."
-  (message "twist: %s: Signaling %s %s" twist-emacs-systemd-service command (or args ""))
-  (apply #'start-process "Twist-Systemd" nil "systemctl" "--user" command
-         twist-emacs-systemd-service
-         args))
-
-;;;###autoload
-(defun twist-push-digest (file &optional revision)
-  "Prepare for updating from a digest FILE."
-  (unless (or (equal file twist-current-digest-file)
-              (equal file (car twist-new-digest-file-and-revision)))
-    (setq twist-new-digest-file-and-revision (list file revision))
+(defun twist--handle-state-change (_event)
+  (when (twist--state-file-changed-p)
     (message (substitute-command-keys
-              "twist: Received a new digest for updates. \
+              "twist: The package set has been changed. \
 Run \\[twist-update] to start updating"
               'no-face))))
 
+(defun twist--state-file-changed-p ()
+  (and (file-readable-p twist-state-file)
+       (not (equal (and twist-current-state-file
+                        (file-exists-p twist-current-state-file)
+                        (file-truename twist-current-state-file))
+                   (file-truename  twist-state-file)))))
+
+;;;###autoload
 (defun twist-update ()
-  "Hot-reload packages from the digest."
+  "Hot-reload packages from the new state."
   (interactive)
-  (if (and twist-new-digest-file-and-revision
-           (not (equal (car twist-new-digest-file-and-revision)
-                       twist-current-digest-file)))
+  (if (twist--state-file-changed-p)
       (progn
-        (message "Updating from digest %s%s"
-                 (car twist-new-digest-file-and-revision)
-                 (if-let (rev (cadr twist-new-digest-file-and-revision))
-                     (format " (revision: %s)" rev)
-                   ""))
-        (twist--update-from-digest (car twist-new-digest-file-and-revision))
-        (setq twist-new-digest-file-and-revision nil
-              twist-configuration-revision (cadr twist-new-digest-file-and-revision))
+        (message "Updating from file %s" twist-state-file)
+        (twist--update-from-file twist-state-file)
         (garbage-collect)
         (message "twist: Update complete."))
     (user-error "No updates.")))
 
-(defun twist--update-from-digest (digest-file)
-  (let* ((current-digest (twist--read-digest-file twist-current-digest-file))
-         (new-digest (twist--read-digest-file digest-file))
+(defun twist--update-from-file (state-file)
+  (let* ((current-state (twist--read-state-file twist-current-state-file))
+         (new-state (twist--read-state-file state-file))
          (new-native-version (twist--get-native-version
-                              (or (alist-get 'emacsPath new-digest)
+                              (or (alist-get 'emacsPath new-state)
                                   (error "Missing 'emacsPath"))))
          (eln-compat-p (equal new-native-version comp-native-version-dir)))
     (twist--update-list 'exec-path
-                        (alist-get 'executablePackages current-digest)
-                        (alist-get 'executablePackages new-digest))
+                        (alist-get 'executablePackages current-state)
+                        (alist-get 'executablePackages new-state))
     (when eln-compat-p
       (twist--maybe-swap-item 'native-comp-eln-load-path
-                              (alist-get 'nativeLoadPath current-digest)
-                              (alist-get 'nativeLoadPath new-digest)))
-    (let* ((old-packages (alist-get 'elispPackages current-digest))
-           (new-packages (alist-get 'elispPackages new-digest))
+                              (alist-get 'nativeLoadPath current-state)
+                              (alist-get 'nativeLoadPath new-state)))
+    (let* ((old-packages (alist-get 'elispPackages current-state))
+           (new-packages (alist-get 'elispPackages new-state))
            (unloaded-packages (seq-difference old-packages new-packages))
            reloaded-features)
       (require 'loadhist)
@@ -160,12 +148,13 @@ Run \\[twist-update] to start updating"
         (unless (string-suffix-p "-autoloads" file)
           (load file))))
     (twist--maybe-swap-item 'Info-directory-list
-                            (alist-get 'infoPath current-digest)
-                            (alist-get 'infoPath new-digest)
+                            (alist-get 'infoPath current-state)
+                            (alist-get 'infoPath new-state)
                             'info)
-    (setq twist-current-digest-file digest-file)))
+    (setq twist-current-state-file (file-truename state-file)
+          twist-configuration-revision (alist-get 'configurationRevision new-state))))
 
-(defun twist--read-digest-file (file)
+(defun twist--read-state-file (file)
   (with-temp-buffer
     (insert-file-contents file)
     (json-parse-buffer :array-type 'array :object-type 'alist)))
