@@ -91,6 +91,7 @@ Run \\[twist-update] to start updating"
                         (file-truename twist-current-state-file))
                    (file-truename  twist-state-file)))))
 
+;;;###autoload
 (defun twist-update ()
   "Hot-reload packages from the new state."
   (interactive)
