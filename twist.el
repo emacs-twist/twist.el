@@ -50,7 +50,8 @@
   :group 'twist
   :set (lambda (sym val)
          (set sym val)
-         (twist--change-state-file val))
+         (when (bound-and-true-p twist-watch-mode)
+           (twist--change-state-file val)))
   :type 'file)
 
 (defvar twist-configuration-revision nil
@@ -58,11 +59,23 @@
 
 (defvar twist-configuration-file-watch nil)
 
-(defun twist--change-state-file (file)
+;;;###autoload
+(define-minor-mode twist-watch-mode
+  "Global minor mode which supports notification of package updates."
+  :global t
+  (when twist-watch-mode
+    (twist--change-state-file)
+    (when twist-configuration-file-watch
+      (message "Started watching %s for package updates" twist-state-file))))
+
+(defun twist--change-state-file (&optional file)
   (when twist-configuration-file-watch
-    (file-notify-rm-watch twist-configuration-file-watch))
-  (setq twist-configuration-file-watch
-        (file-notify-add-watch file '(change) #'twist--handle-state-change)))
+    (file-notify-rm-watch twist-configuration-file-watch)
+    (setq twist-configuration-file-watch nil))
+  (when twist-watch-mode
+    (setq twist-configuration-file-watch
+          (file-notify-add-watch (or file twist-state-file)
+                                 '(change) #'twist--handle-state-change))))
 
 (defun twist--handle-state-change (_event)
   (when (twist--state-file-changed-p)
