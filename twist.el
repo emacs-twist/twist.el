@@ -38,20 +38,20 @@
 (defvar comp-native-version-dir)
 
 ;; Declared as constants elsewhere
-(defvar twist-current-state-file)
+(defvar twist-current-manifest-file)
 (defvar twist-running-emacs)
 
 (defgroup twist nil
   "Nix-based package manager for Emacs."
   :group 'nix)
 
-(defcustom twist-state-file (locate-user-emacs-file "twist.json")
+(defcustom twist-manifest-file (locate-user-emacs-file "twist-manifest.json")
   "Path to the state file tracking the state of the package set."
   :group 'twist
   :set (lambda (sym val)
          (set sym val)
          (when (bound-and-true-p twist-watch-mode)
-           (twist--change-state-file val)))
+           (twist--change-manifest-file val)))
   :type 'file)
 
 (defvar twist-configuration-revision nil
@@ -64,61 +64,61 @@
   "Global minor mode which supports notification of package updates."
   :global t
   (when twist-watch-mode
-    (twist--change-state-file)
+    (twist--change-manifest-file)
     (when twist-configuration-file-watch
-      (message "Started watching %s for package updates" twist-state-file))))
+      (message "Started watching %s for package updates" twist-manifest-file))))
 
-(defun twist--change-state-file (&optional file)
+(defun twist--change-manifest-file (&optional file)
   (when twist-configuration-file-watch
     (file-notify-rm-watch twist-configuration-file-watch)
     (setq twist-configuration-file-watch nil))
   (when twist-watch-mode
     (setq twist-configuration-file-watch
-          (file-notify-add-watch (or file twist-state-file)
-                                 '(change) #'twist--handle-state-change))))
+          (file-notify-add-watch (or file twist-manifest-file)
+                                 '(change) #'twist--handle-manifest-change))))
 
-(defun twist--handle-state-change (_event)
-  (when (twist--state-file-changed-p)
+(defun twist--handle-manifest-change (_event)
+  (when (twist--manifest-file-changed-p)
     (message (substitute-command-keys
               "twist: The package set has been changed. \
 Run \\[twist-update] to start updating"
               'no-face))))
 
-(defun twist--state-file-changed-p ()
-  (and (file-readable-p twist-state-file)
-       (not (equal (and twist-current-state-file
-                        (file-exists-p twist-current-state-file)
-                        (file-truename twist-current-state-file))
-                   (file-truename  twist-state-file)))))
+(defun twist--manifest-file-changed-p ()
+  (and (file-readable-p twist-manifest-file)
+       (not (equal (and twist-current-manifest-file
+                        (file-exists-p twist-current-manifest-file)
+                        (file-truename twist-current-manifest-file))
+                   (file-truename  twist-manifest-file)))))
 
 ;;;###autoload
 (defun twist-update ()
   "Hot-reload packages from the new state."
   (interactive)
-  (if (twist--state-file-changed-p)
+  (if (twist--manifest-file-changed-p)
       (progn
-        (message "Updating from file %s" twist-state-file)
-        (twist--update-from-file twist-state-file)
+        (message "Updating from file %s" twist-manifest-file)
+        (twist--update-from-file twist-manifest-file)
         (garbage-collect)
         (message "twist: Update complete."))
     (user-error "No updates.")))
 
-(defun twist--update-from-file (state-file)
-  (let* ((current-state (twist--read-state-file twist-current-state-file))
-         (new-state (twist--read-state-file state-file))
+(defun twist--update-from-file (manifest-file)
+  (let* ((current-manifest (twist--read-manifest-file twist-current-manifest-file))
+         (new-manifest (twist--read-manifest-file manifest-file))
          (new-native-version (twist--get-native-version
-                              (or (alist-get 'emacsPath new-state)
+                              (or (alist-get 'emacsPath new-manifest)
                                   (error "Missing 'emacsPath"))))
          (eln-compat-p (equal new-native-version comp-native-version-dir)))
     (twist--update-list 'exec-path
-                        (alist-get 'executablePackages current-state)
-                        (alist-get 'executablePackages new-state))
+                        (alist-get 'executablePackages current-manifest)
+                        (alist-get 'executablePackages new-manifest))
     (when eln-compat-p
       (twist--maybe-swap-item 'native-comp-eln-load-path
-                              (alist-get 'nativeLoadPath current-state)
-                              (alist-get 'nativeLoadPath new-state)))
-    (let* ((old-packages (alist-get 'elispPackages current-state))
-           (new-packages (alist-get 'elispPackages new-state))
+                              (alist-get 'nativeLoadPath current-manifest)
+                              (alist-get 'nativeLoadPath new-manifest)))
+    (let* ((old-packages (alist-get 'elispPackages current-manifest))
+           (new-packages (alist-get 'elispPackages new-manifest))
            (unloaded-packages (seq-difference old-packages new-packages))
            reloaded-features)
       (require 'loadhist)
@@ -148,13 +148,13 @@ Run \\[twist-update] to start updating"
         (unless (string-suffix-p "-autoloads" file)
           (load file))))
     (twist--maybe-swap-item 'Info-directory-list
-                            (alist-get 'infoPath current-state)
-                            (alist-get 'infoPath new-state)
+                            (alist-get 'infoPath current-manifest)
+                            (alist-get 'infoPath new-manifest)
                             'info)
-    (setq twist-current-state-file (file-truename state-file)
-          twist-configuration-revision (alist-get 'configurationRevision new-state))))
+    (setq twist-current-manifest-file (file-truename manifest-file)
+          twist-configuration-revision (alist-get 'configurationRevision new-manifest))))
 
-(defun twist--read-state-file (file)
+(defun twist--read-manifest-file (file)
   (with-temp-buffer
     (insert-file-contents file)
     (json-parse-buffer :array-type 'array :object-type 'alist)))
