@@ -101,7 +101,7 @@ Run \\[twist-update] to start updating"
         (unwind-protect
             (if (twist--update-from-file twist-manifest-file)
                 (message "twist: Update complete.")
-              (user-error "twist: Emacs has been updated. Please restart Emacs"))
+              (user-error "twist: Emacs has been upgraded. Please restart Emacs"))
           (garbage-collect)))
     (user-error "twist: No updates.")))
 
