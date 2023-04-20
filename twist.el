@@ -98,61 +98,65 @@ Run \\[twist-update] to start updating"
   (if (twist--manifest-file-changed-p)
       (progn
         (message "Updating from file %s" twist-manifest-file)
-        (twist--update-from-file twist-manifest-file)
-        (garbage-collect)
-        (message "twist: Update complete."))
+        (unwind-protect
+            (if (twist--update-from-file twist-manifest-file)
+                (message "twist: Update complete.")
+              (user-error "Emacs has been updated. Please restart Emacs"))
+          (garbage-collect)))
     (user-error "No updates.")))
 
 (defun twist--update-from-file (manifest-file)
-  (let* ((current-manifest (twist--read-manifest-file twist-current-manifest-file))
-         (new-manifest (twist--read-manifest-file manifest-file))
-         (new-native-version (twist--get-native-version
-                              (or (alist-get 'emacsPath new-manifest)
-                                  (error "Missing 'emacsPath"))))
-         (eln-compat-p (equal new-native-version comp-native-version-dir)))
-    (twist--update-list 'exec-path
-                        (alist-get 'executablePackages current-manifest)
-                        (alist-get 'executablePackages new-manifest))
-    (when eln-compat-p
+  (let ((current-manifest (twist--read-manifest-file twist-current-manifest-file))
+        (new-manifest (twist--read-manifest-file manifest-file)))
+    ;; Return nil from this function if Emacs has been updated
+    (when (equal (or (alist-get 'emacsPath current-manifest)
+                     (error "Missing emacsPath from the current manifest"))
+                 (or (alist-get 'emacsPath new-manifest)
+                     (error "Missing emacsPath from the new manifest")))
+      (twist--update-list 'exec-path
+                          (alist-get 'executablePackages current-manifest)
+                          (alist-get 'executablePackages new-manifest))
       (twist--maybe-swap-item 'native-comp-eln-load-path
                               (alist-get 'nativeLoadPath current-manifest)
-                              (alist-get 'nativeLoadPath new-manifest)))
-    (let* ((old-packages (alist-get 'elispPackages current-manifest))
-           (new-packages (alist-get 'elispPackages new-manifest))
-           (unloaded-packages (seq-difference old-packages new-packages))
-           reloaded-features)
-      (require 'loadhist)
-      (dolist (hist-ent load-history)
-        (when-let* ((file (car-safe hist-ent))
-                    (old-package (rassoc (twist--site-lisp-dir file)
-                                         unloaded-packages)))
-          (when (assq (car old-package) new-packages)
-            (dolist (x (cdr hist-ent))
-              (when (eq (car-safe x) 'provide)
-                (message "twist: Found a feature to reload: %s" (cdr x))
-                (push (cdr x) reloaded-features))))))
-      (dolist (old-package unloaded-packages)
-        (delete (cdr old-package) load-path)
-        (message "twist: Removed an old package from load-path: %s"
-                 (car old-package)))
-      (dolist (new-package (seq-difference new-packages old-packages))
-        (push (cdr new-package) load-path)
-        (message "twist: Added a new package to load-path: %s"
-                 (car new-package))
-        (load (format "%s-autoloads.el" new-package)
-              ;; autoloads may not exist
-              'noerror))
-      (message "twist: Reloading updated packages...")
-      (dolist (file (mapcar #'symbol-name reloaded-features))
-        ;; autoloads have been already loaded unconditionally
-        (unless (string-suffix-p "-autoloads" file)
-          (load file))))
-    (twist--maybe-swap-item 'Info-directory-list
-                            (alist-get 'infoPath current-manifest)
-                            (alist-get 'infoPath new-manifest)
-                            'info)
-    (setq twist-current-manifest-file (file-truename manifest-file)
-          twist-configuration-revision (alist-get 'configurationRevision new-manifest))))
+                              (alist-get 'nativeLoadPath new-manifest))
+      (let* ((old-packages (alist-get 'elispPackages current-manifest))
+             (new-packages (alist-get 'elispPackages new-manifest))
+             (unloaded-packages (seq-difference old-packages new-packages))
+             reloaded-features)
+        (require 'loadhist)
+        (dolist (hist-ent load-history)
+          (when-let* ((file (car-safe hist-ent))
+                      (old-package (rassoc (twist--site-lisp-dir file)
+                                           unloaded-packages)))
+            (when (assq (car old-package) new-packages)
+              (dolist (x (cdr hist-ent))
+                (when (eq (car-safe x) 'provide)
+                  (message "twist: Found a feature to reload: %s" (cdr x))
+                  (push (cdr x) reloaded-features))))))
+        (dolist (old-package unloaded-packages)
+          (delete (cdr old-package) load-path)
+          (message "twist: Removed an old package from load-path: %s"
+                   (car old-package)))
+        (dolist (new-package (seq-difference new-packages old-packages))
+          (push (cdr new-package) load-path)
+          (message "twist: Added a new package to load-path: %s"
+                   (car new-package))
+          (load (format "%s-autoloads.el" new-package)
+                ;; autoloads may not exist
+                'noerror))
+        (message "twist: Reloading updated packages...")
+        (dolist (file (mapcar #'symbol-name reloaded-features))
+          ;; autoloads have been already loaded unconditionally
+          (unless (string-suffix-p "-autoloads" file)
+            (load file))))
+      (twist--maybe-swap-item 'Info-directory-list
+                              (alist-get 'infoPath current-manifest)
+                              (alist-get 'infoPath new-manifest)
+                              'info)
+      (setq twist-current-manifest-file (file-truename manifest-file)
+            twist-configuration-revision (alist-get 'configurationRevision new-manifest))
+      ;; Ensure non-nil is returned
+      t)))
 
 (defun twist--read-manifest-file (file)
   (with-temp-buffer
@@ -189,14 +193,6 @@ Run \\[twist-update] to start updating"
       (when new
         (cl-pushnew new place)
         (message "twist: Added to %s: %s" symbol new)))))
-
-(defun twist--get-native-version (dir)
-  (thread-last
-    (expand-file-name "share/emacs/native-lisp" dir)
-    (directory-files)
-    (cl-remove-if (lambda (name)
-                    (string-prefix-p "." name)))
-    (car)))
 
 (provide 'twist)
 ;;; twist.el ends here
