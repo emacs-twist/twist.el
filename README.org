@@ -1,0 +1,44 @@
+* twist.el
+This is a companion to [[https://github.com/emacs-twist/twist.nix][twist.nix]].
+You can use =twist.nix= without this Emacs Lisp package, but it improves the usability of Emacs with twist.
+** Features
+- Enable hot reloading of Emacs Lisp packages
+** Configuration
+*** Hot reloading
+To enable hot reloading of Emacs Lisp packages, you first have to update your Nix configuration.
+
+Set =exportManifest=​ option of twist to true:
+
+#+begin_src nix
+  emacsTwist {
+    initFiles = [
+      ./init.el
+    ];
+    lockDir = ./lock;
+    ...
+    # This is required to enable hot reloading
+    exportManifest = true;
+  }
+#+end_src
+
+Set =programs.emacs-twist.createManifestFile=​ option of the home-manager module to true:
+
+#+begin_src nix
+  programs.emacs-twist = {
+    Set user-emacs-directory
+    directory = ".local/share/emacs";
+    createInitFile = true;
+    config = emacsConfig;
+    # This is also required for hot reloading
+    createManifestFile = true;
+  };
+#+end_src
+
+To detect updates of the configuration, enable =twist-watch-mode=:
+
+#+begin_src elisp
+  (add-hook 'emacs-startup-hook #'twist-watch-mode)
+#+end_src
+** Usage
+*** Reloading packages
+To reload updated packages, run =twist-update= command.
