@@ -97,13 +97,13 @@ Run \\[twist-update] to start updating"
   (interactive)
   (if (twist--manifest-file-changed-p)
       (progn
-        (message "Updating from file %s" twist-manifest-file)
+        (message "twist: Updating from file %s" twist-manifest-file)
         (unwind-protect
             (if (twist--update-from-file twist-manifest-file)
                 (message "twist: Update complete.")
-              (user-error "Emacs has been updated. Please restart Emacs"))
+              (user-error "twist: Emacs has been updated. Please restart Emacs"))
           (garbage-collect)))
-    (user-error "No updates.")))
+    (user-error "twist: No updates.")))
 
 (defun twist--update-from-file (manifest-file)
   (let ((current-manifest (twist--read-manifest-file twist-current-manifest-file))
