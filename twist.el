@@ -148,7 +148,8 @@ Run \\[twist-update] to start updating"
         (dolist (file (mapcar #'symbol-name reloaded-features))
           ;; autoloads have been already loaded unconditionally
           (unless (string-suffix-p "-autoloads" file)
-            (load file))))
+            (unless (load file 'noerror)
+              (message "twist: Failed to load %s" file)))))
       (twist--maybe-swap-item 'Info-directory-list
                               (alist-get 'infoPath current-manifest)
                               (alist-get 'infoPath new-manifest)
