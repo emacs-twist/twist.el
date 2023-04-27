@@ -180,7 +180,7 @@ Run \\[twist-update] to start updating"
       (delete x place)
       (message "twist: Deleted from %s: %s" symbol x))
     (dolist (x added)
-      (add-to-list symbol x)
+      (cl-pushnew x place)
       (message "twist: Added to %s: %s" symbol x))))
 
 (defun twist--maybe-swap-item (symbol old new &optional feature)
