@@ -35,6 +35,10 @@
 (require 'cl-lib)
 (require 'filenotify)
 
+(defconst twist-mode-line-element
+  '(twist-updated
+    ("" twist-mode-line-format " ")))
+
 (defvar comp-native-version-dir)
 
 ;; Declared as constants elsewhere
@@ -54,19 +58,30 @@
            (twist--change-manifest-file val)))
   :type 'file)
 
+(defcustom twist-mode-line-format
+  '("twist(*)")
+  "The mode line format when there is an update."
+  :type 'sexp)
+
 (defvar twist-configuration-revision nil
   "Configuration revision of the current package set.")
 
 (defvar twist-configuration-file-watch nil)
 
+(defvar twist-updated nil
+  "Non-nil if there is an update.")
+
 ;;;###autoload
 (define-minor-mode twist-watch-mode
   "Global minor mode which supports notification of package updates."
   :global t
-  (when twist-watch-mode
-    (twist--change-manifest-file)
-    (when twist-configuration-file-watch
-      (message "Started watching %s for package updates" twist-manifest-file))))
+  (if twist-watch-mode
+      (progn
+        (cl-pushnew twist-mode-line-element global-mode-string)
+        (twist--change-manifest-file)
+        (when twist-configuration-file-watch
+          (message "Started watching %s for package updates" twist-manifest-file)))
+    (cl-delete twist-mode-line-element global-mode-string)))
 
 (defun twist--change-manifest-file (&optional file)
   (when twist-configuration-file-watch
@@ -82,7 +97,8 @@
     (message (substitute-command-keys
               "twist: The package set has been changed. \
 Run \\[twist-update] to start updating"
-              'no-face))))
+              'no-face))
+    (setq twist-updated t)))
 
 (defun twist--manifest-file-changed-p ()
   (and (file-readable-p twist-manifest-file)
@@ -155,7 +171,8 @@ Run \\[twist-update] to start updating"
                               (alist-get 'infoPath new-manifest)
                               'info)
       (setq twist-current-manifest-file (file-truename manifest-file)
-            twist-configuration-revision (alist-get 'configurationRevision new-manifest))
+            twist-configuration-revision (alist-get 'configurationRevision new-manifest)
+            twist-updated nil)
       ;; Ensure non-nil is returned
       t)))
 
