@@ -144,12 +144,13 @@ Run \\[twist-update] to start updating"
           (load (format "%s-autoloads.el" new-package)
                 ;; autoloads may not exist
                 'noerror))
-        (message "twist: Reloading updated packages...")
-        (dolist (file (mapcar #'symbol-name reloaded-features))
-          ;; autoloads have been already loaded unconditionally
-          (unless (string-suffix-p "-autoloads" file)
-            (unless (load file 'noerror)
-              (message "twist: Failed to load %s" file)))))
+        (when reloaded-features
+          (message "twist: Reloading updated packages...")
+          (dolist (file (mapcar #'symbol-name reloaded-features))
+            ;; autoloads have been already loaded unconditionally
+            (unless (string-suffix-p "-autoloads" file)
+              (unless (load file 'noerror)
+                (message "twist: Failed to load %s" file))))))
       (twist--maybe-swap-item 'Info-directory-list
                               (alist-get 'infoPath current-manifest)
                               (alist-get 'infoPath new-manifest)
@@ -158,6 +159,7 @@ Run \\[twist-update] to start updating"
             twist-configuration-revision (alist-get 'configurationRevision new-manifest))
       ;; Ensure non-nil is returned
       t)))
+
 
 (defun twist--read-manifest-file (file)
   (with-temp-buffer
