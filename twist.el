@@ -143,7 +143,7 @@ Run \\[twist-update] to start updating"
                    (car new-package))
           (load (format "%s-autoloads.el" new-package)
                 ;; autoloads may not exist
-                'noerror))
+                'noerror nil 'nosuffix))
         (when reloaded-features
           (message "twist: Reloading updated packages...")
           (dolist (file (mapcar #'symbol-name reloaded-features))
