@@ -141,9 +141,9 @@ Run \\[twist-update] to start updating"
           (push (cdr new-package) load-path)
           (message "twist: Added a new package to load-path: %s"
                    (car new-package))
-          (load (format "%s-autoloads.el" new-package)
+          (load (format "%s-autoloads" new-package)
                 ;; autoloads may not exist
-                'noerror nil 'nosuffix))
+                'noerror))
         (when reloaded-features
           (message "twist: Reloading updated packages...")
           (dolist (file (mapcar #'symbol-name reloaded-features))
