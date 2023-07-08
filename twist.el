@@ -89,7 +89,26 @@ Run \\[twist-update] to start updating"
        (not (equal (and twist-current-manifest-file
                         (file-exists-p twist-current-manifest-file)
                         (file-truename twist-current-manifest-file))
-                   (file-truename  twist-manifest-file)))))
+                   (file-truename twist-manifest-file)))
+       (twist--json-differ-partially-p
+        twist-manifest-file
+        twist-current-manifest-file
+        '("elispPackages"
+          "infoPath"
+          "nativeLoadPath"))))
+
+(defun twist--json-differ-partially-p (file1 file2 keys)
+  (let ((obj1 (with-temp-buffer
+                (insert-file-contents file1)
+                (json-parse-buffer :object-type 'hash-table)))
+        (obj2 (with-temp-buffer
+                (insert-file-contents file2)
+                (json-parse-buffer :object-type 'hash-table))))
+    (catch 'package-set-differ
+      (dolist (key keys)
+        (unless (equal (gethash key obj1)
+                       (gethash key obj2))
+          (throw 'package-set-differ t))))))
 
 ;;;###autoload
 (defun twist-update ()
