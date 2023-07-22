@@ -59,6 +59,8 @@
 
 (defvar twist-configuration-file-watch nil)
 
+;;;; Updating from the primary manifest
+
 ;;;###autoload
 (define-minor-mode twist-watch-mode
   "Global minor mode which supports notification of package updates."
@@ -180,13 +182,34 @@ Run \\[twist-update] to start updating"
       ;; Ensure non-nil is returned
       t)))
 
+;;;; Partial loading from a secondary manifest
+
+;;;###autoload
+(defun twist-add-all-executable-packages (file)
+  "Add the directories of all executable packages from FILE to `exec-path'."
+  (interactive "fManifest file: ")
+  (let ((manifest (twist--read-manifest-file file)))
+    (seq-doseq (dir (cdr (assq 'executablePackages manifest)))
+      (cl-pushnew dir exec-path))))
+
+;;;###autoload
+(defun twist-add-executable-packages (file)
+  "Add the directories of some executable packages from FILE to `exec-path'."
+  (interactive "fManifest file: ")
+  (let* ((manifest (twist--read-manifest-file file))
+         (dirs (completing-read-multiple "Add directories to exec-path: "
+                                         (seq-into (cdr (assq 'executablePackages manifest))
+                                                   'list)
+                                         nil t)))
+    (dolist (dir (ensure-list dirs))
+      (cl-pushnew dir exec-path))))
+
+;;;; Utility functions
 
 (defun twist--read-manifest-file (file)
   (with-temp-buffer
     (insert-file-contents file)
     (json-parse-buffer :array-type 'array :object-type 'alist)))
-
-;;;; Utility functions
 
 (defun twist--site-lisp-dir (file)
   (when (string-match (rx bos "/nix/store/" (+ anything)
