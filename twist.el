@@ -95,7 +95,8 @@ Run \\[twist-update] to start updating"
         twist-current-manifest-file
         '("elispPackages"
           "infoPath"
-          "nativeLoadPath"))))
+          "nativeLoadPath"
+          "executablePackages"))))
 
 (defun twist--json-differ-partially-p (file1 file2 keys)
   (let ((obj1 (with-temp-buffer
