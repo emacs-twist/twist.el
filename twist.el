@@ -160,7 +160,7 @@ Run \\[twist-update] to start updating"
           (push (cdr new-package) load-path)
           (message "twist: Added a new package to load-path: %s"
                    (car new-package))
-          (load (format "%s-autoloads" new-package)
+          (load (format "%s-autoloads" (car new-package))
                 ;; autoloads may not exist
                 'noerror))
         (when reloaded-features
