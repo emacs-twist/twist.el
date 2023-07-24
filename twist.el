@@ -66,9 +66,15 @@
   "Global minor mode which supports notification of package updates."
   :global t
   (when twist-watch-mode
-    (twist--change-manifest-file)
-    (when twist-configuration-file-watch
-      (message "Started watching %s for package updates" twist-manifest-file))))
+    (if (file-readable-p twist-manifest-file)
+        (progn
+          (twist--change-manifest-file)
+          (when twist-configuration-file-watch
+            (message "Started watching %s for package updates"
+                     twist-manifest-file)))
+      (message "Trying to turn on twist-watch-mode, but twist-manifest-file \
+does not exist. Please check the variable and enable the mode again.")
+      (setq twist-watch-mode nil))))
 
 (defun twist--change-manifest-file (&optional file)
   (when twist-configuration-file-watch
