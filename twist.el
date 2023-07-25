@@ -195,8 +195,8 @@ Run \\[twist-update] to start updating"
   "Add the directories of all executable packages from FILE to `exec-path'."
   (interactive "fManifest file: ")
   (let ((manifest (twist--read-manifest-file file)))
-    (seq-doseq (dir (cdr (assq 'executablePackages manifest)))
-      (cl-pushnew dir exec-path))))
+    (twist--add-to-exec-path (seq-into (cdr (assq 'executablePackages manifest))
+                                       'list))))
 
 ;;;###autoload
 (defun twist-add-executable-packages (file)
@@ -207,8 +207,24 @@ Run \\[twist-update] to start updating"
                                          (seq-into (cdr (assq 'executablePackages manifest))
                                                    'list)
                                          nil t)))
-    (dolist (dir (ensure-list dirs))
-      (cl-pushnew dir exec-path))))
+    (twist--add-to-exec-path (ensure-list dirs))))
+
+(defun twist--add-to-exec-path (dirs)
+  (let (added)
+    (dolist (dir dirs)
+      (unless (member dir exec-path)
+        (push dir exec-path)
+        (push dir added)))
+    (if added
+        (message "Added to exec-path %d directories (%s)"
+                 (length added)
+                 (mapcan (lambda (dir)
+                           (thread-last
+                             (directory-files dir)
+                             (seq-filter #'file-executable-p)
+                             (mapcar #'file-name-base)))
+                         added))
+      (message "No directory has been added to exec-path"))))
 
 ;;;; Utility functions
 
