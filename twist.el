@@ -210,10 +210,11 @@ Run \\[twist-update] to start updating"
     (twist--add-to-exec-path (ensure-list dirs))))
 
 (defun twist--add-to-exec-path (dirs)
-  (let (added)
+  (let (added
+        (global-exec-path (symbol-value 'exec-path)))
     (dolist (dir dirs)
-      (unless (member dir exec-path)
-        (push dir exec-path)
+      (unless (member dir global-exec-path)
+        (push dir (symbol-value 'exec-path))
         (push dir added)))
     (if added
         (message "Added to exec-path %d directories (%s)"
