@@ -211,11 +211,17 @@ Run \\[twist-update] to start updating"
 
 (defun twist--add-to-exec-path (dirs)
   (let (added
-        (global-exec-path (symbol-value 'exec-path)))
+        (global-exec-path (symbol-value 'exec-path))
+        (global-path (getenv "PATH")))
     (dolist (dir dirs)
       (unless (member dir global-exec-path)
         (push dir (symbol-value 'exec-path))
         (push dir added)))
+    (dolist (dir dirs)
+      (unless (string-match-p (rx-to-string `(and (or bol ":") ,dir ":"))
+                              global-path)
+        (setq global-path (concat dir ":" global-path))))
+    (setenv "PATH global-path")
     (if added
         (message "Added to exec-path %d directories (%s)"
                  (length added)
