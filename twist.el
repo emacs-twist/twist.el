@@ -248,13 +248,12 @@ Run \\[twist-update] to start updating"
 
 (defun twist--update-list (symbol old new)
   (let ((removed (seq-difference old new #'equal))
-        (added (seq-difference new old #'equal))
-        (place (symbol-value symbol)))
+        (added (seq-difference new old #'equal)))
     (dolist (x removed)
-      (delete x place)
+      (set-default symbol (delete x (default-value symbol)))
       (message "twist: Deleted from %s: %s" symbol x))
     (dolist (x added)
-      (cl-pushnew x place)
+      (set-default symbol (cl-adjoin x (default-value symbol) :test #'equal))
       (message "twist: Added to %s: %s" symbol x))))
 
 (defun twist--maybe-swap-item (symbol old new &optional feature)
